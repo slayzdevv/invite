@@ -35,7 +35,6 @@ task.spawn(function()
         elseif method == "RemoteEvent" then
             remotename = u2:RemoteEvent(name)
         end
-        if remotename == nil then return nil end
         return Services.ReplicatedStorage.Packages.Net[tostring(remotename)]
     end
 
@@ -93,7 +92,7 @@ task.spawn(function()
     titleLabel.Size = UDim2.new(1, -40, 1, 0)
     titleLabel.Position = UDim2.new(0, 12, 0, 0)
     titleLabel.BackgroundTransparency = 1
-    titleLabel.Text = "Trade Invite 1.6"
+    titleLabel.Text = "Trade Invite 1.8"
     titleLabel.TextColor3 = Color3.fromRGB(220, 220, 255)
     titleLabel.TextSize = 15
     titleLabel.Font = Enum.Font.GothamBold
@@ -227,7 +226,7 @@ task.spawn(function()
             print("[TradeInvite] OK:", ok, "| Result:", result, "| Type:", type(result))
 
             if ok then
-                if result == nil or result == true or result == "Success" then
+                if result == true or result == "Success" then
                     setStatus("Invite envoyée !", Color3.fromRGB(80, 200, 120))
                     sendBtn.Text = "Envoyée ✓"
                     sendBtn.BackgroundColor3 = Color3.fromRGB(50, 160, 80)
