@@ -119,7 +119,7 @@ task.spawn(function()
     titleLabel.Size = UDim2.new(1, -40, 1, 0)
     titleLabel.Position = UDim2.new(0, 12, 0, 0)
     titleLabel.BackgroundTransparency = 1
-    titleLabel.Text = "Trade Invite 1.222"
+    titleLabel.Text = "Trade Invite 1.22w2"
     titleLabel.TextColor3 = Color3.fromRGB(220, 220, 255)
     titleLabel.TextSize = 15
     titleLabel.Font = Enum.Font.GothamBold
@@ -250,15 +250,24 @@ task.spawn(function()
                 return Invite:InvokeServer("afb005f9-6e81-4e0a-8bb0-3555938a9658", userId)
             end)
 
-            if ok and result ~= false then
-                setStatus("Invite envoyée !", Color3.fromRGB(80, 200, 120))
-                sendBtn.Text = "Envoyée ✓"
-                sendBtn.BackgroundColor3 = Color3.fromRGB(50, 160, 80)
+            print("[TradeInvite] OK:", ok, "| Result:", result, "| Type:", type(result))
+
+            if ok then
+                if result == true or result == "Success" then
+                    setStatus("Invite envoyée !", Color3.fromRGB(80, 200, 120))
+                    sendBtn.Text = "Envoyée ✓"
+                    sendBtn.BackgroundColor3 = Color3.fromRGB(50, 160, 80)
+                else
+                    local resStr = tostring(result)
+                    setStatus("Resp: " .. resStr:sub(1, 35), Color3.fromRGB(220, 180, 80))
+                    sendBtn.Text = "Serveur a répondu"
+                    sendBtn.BackgroundColor3 = Color3.fromRGB(180, 120, 50)
+                end
             else
-                local msg = ok and "Refusé" or tostring(result):sub(1, 40)
+                local msg = tostring(result):sub(1, 40)
                 setStatus(msg, Color3.fromRGB(220, 80, 80))
-                sendBtn.Text = "Envoyer l'invite"
-                sendBtn.BackgroundColor3 = Color3.fromRGB(70, 100, 220)
+                sendBtn.Text = "Erreur Call"
+                sendBtn.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
             end
 
             task.wait(3)
