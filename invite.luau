@@ -110,7 +110,7 @@ task.spawn(function()
     titleLabel.Size = UDim2.new(1, -40, 1, 0)
     titleLabel.Position = UDim2.new(0, 12, 0, 0)
     titleLabel.BackgroundTransparency = 1
-    titleLabel.Text = "Trade Invite 1.4"
+    titleLabel.Text = "Trade Invite 1.5"
     titleLabel.TextColor3 = Color3.fromRGB(220, 220, 255)
     titleLabel.TextSize = 15
     titleLabel.Font = Enum.Font.GothamBold
@@ -238,7 +238,7 @@ task.spawn(function()
             setStatus("Envoi...", Color3.fromRGB(200, 160, 60))
 
             local ok, result = pcall(function()
-                return Invite:InvokeServer("afb005f9-6e81-4e0a-8bb0-3555938a9658", userId)
+                return Invite:InvokeServer(userId, "afb005f9-6e81-4e0a-8bb0-3555938a9658")
             end)
 
             print("[TradeInvite] OK:", ok, "| Result:", result, "| Type:", type(result))
