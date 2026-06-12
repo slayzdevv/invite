@@ -34,7 +34,7 @@ task.spawn(function()
         elseif method == "RemoteEvent" then
             remotename = u2:RemoteEvent(name)
         end
-        return Services.ReplicatedStorage.Packages.Net[tostring(remotename)]
+        return Services.ReplicatedStorage.Packages.Net:FindFirstChild(tostring(remotename), true)
     end
     
     local Invite = pcall(function() return makeRemote("RemoteFunction", "TradeService/Invite") end) and makeRemote("RemoteFunction", "TradeService/Invite") or nil
