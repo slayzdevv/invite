@@ -24,10 +24,10 @@ task.spawn(function()
     local LocalPlayer = Services.Players.LocalPlayer
 
     ----------------------------------------------------------------
-    -- Remote lookup (accès direct, sans makeRemote ni getgc)
+    -- Remote lookup (hash direct — pas de makeRemote, pas de getgc)
     ----------------------------------------------------------------
     local Net = Services.ReplicatedStorage.Packages.Net
-    local Invite = Net["RF/TradeService/Invite"]
+    local Invite = Net["RF/d22d880e94d92bc838ed86b04c40ddacae891ee9028aa541d40dcb2711ee5088"]
 
     ----------------------------------------------------------------
     -- GUI
@@ -204,17 +204,18 @@ task.spawn(function()
 
             while attempts < 10 do
                 attempts += 1
+                setStatus("Tentative " .. attempts .. "/10...", Color3.fromRGB(200, 160, 60))
                 local ok, result = pcall(function()
                     return Invite:InvokeServer("afb005f9-6e81-4e0a-8bb0-3555938a9658", userId)
                 end)
 
-                if ok and result then
-                    success = true
-                    break
+                if ok then
+                    -- Pas d'erreur = invite envoyée (result peut être nil ou true)
+                    success = result ~= false
+                    if success then break end
                 end
 
-                setStatus("Tentative " .. attempts .. "/10...", Color3.fromRGB(200, 160, 60))
-                task.wait(5)
+                task.wait(3)
             end
 
             if success then
