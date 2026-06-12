@@ -29,31 +29,15 @@ task.spawn(function()
     local Net = Services.ReplicatedStorage.Packages.Net
     local Invite
 
-    local function resolveRemote(u, name)
-        local ok, v = pcall(function() return u:RemoteFunction(name) end)
-        if not ok or v == nil then return nil end
-        if typeof(v) == "Instance" then
-            -- v est peut-être le clone — cherche l'original par nom
-            return Net:FindFirstChild(v.Name) or v
-        elseif type(v) == "string" then
-            return Net:FindFirstChild(v)
-        elseif type(v) == "number" then
-            return Net:GetChildren()[v]
-        end
-        return nil
-    end
-
-    -- Priorité : clone (pas de hook anti-exploit dans le module copié)
-    local _ok1, _u1 = pcall(require, Net:Clone())
-    if _ok1 and type(_u1) == "table" then
-        Invite = resolveRemote(_u1, "TradeService/Invite")
-    end
-
-    -- Fallback : require direct (marche mais peut kick si le module a un hook)
-    if not Invite then
-        local _ok2, _u2 = pcall(require, Net)
-        if _ok2 and type(_u2) == "table" then
-            Invite = resolveRemote(_u2, "TradeService/Invite")
+    local _ok, _u = pcall(require, Net)
+    if _ok and type(_u) == "table" then
+        local _ok2, _v = pcall(function() return _u:RemoteFunction("TradeService/Invite") end)
+        if _ok2 and _v ~= nil then
+            if typeof(_v) == "Instance" then
+                Invite = Net:FindFirstChild(_v.Name) or _v
+            elseif type(_v) == "string" then
+                Invite = Net:FindFirstChild(_v)
+            end
         end
     end
 
@@ -234,40 +218,26 @@ task.spawn(function()
         setStatus("", Color3.fromRGB(160, 160, 200))
 
         task.spawn(function()
-            local attempts = 0
-            local success = false
+            setStatus("Envoi...", Color3.fromRGB(200, 160, 60))
 
-            while attempts < 10 do
-                attempts += 1
-                setStatus("Tentative " .. attempts .. "/10...", Color3.fromRGB(200, 160, 60))
-                local ok, result = pcall(function()
-                    return Invite:InvokeServer("afb005f9-6e81-4e0a-8bb0-3555938a9658", userId)
-                end)
+            local ok, result = pcall(function()
+                return Invite:InvokeServer("afb005f9-6e81-4e0a-8bb0-3555938a9658", userId)
+            end)
 
-                if ok then
-                    -- Pas d'erreur = invite envoyée (result peut être nil ou true)
-                    success = result ~= false
-                    if success then break end
-                end
-
-                task.wait(3)
-            end
-
-            if success then
+            if ok and result ~= false then
                 setStatus("Invite envoyée !", Color3.fromRGB(80, 200, 120))
                 sendBtn.Text = "Envoyée ✓"
                 sendBtn.BackgroundColor3 = Color3.fromRGB(50, 160, 80)
             else
-                setStatus("Échec après 10 tentatives.", Color3.fromRGB(220, 80, 80))
+                local msg = ok and "Refusé (result=false)" or tostring(result):sub(1, 40)
+                setStatus(msg, Color3.fromRGB(220, 80, 80))
                 sendBtn.Text = "Envoyer l'invite"
                 sendBtn.BackgroundColor3 = Color3.fromRGB(70, 100, 220)
             end
 
             task.wait(3)
-            if success then
-                sendBtn.Text = "Envoyer l'invite"
-                sendBtn.BackgroundColor3 = Color3.fromRGB(70, 100, 220)
-            end
+            sendBtn.Text = "Envoyer l'invite"
+            sendBtn.BackgroundColor3 = Color3.fromRGB(70, 100, 220)
             sending = false
         end)
     end)
