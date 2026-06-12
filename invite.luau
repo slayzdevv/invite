@@ -29,25 +29,31 @@ task.spawn(function()
     local Net = Services.ReplicatedStorage.Packages.Net
     local Invite
 
-    -- Essaie d'abord via require direct (module déjà chargé par le jeu)
-    local _ok, _u2 = pcall(require, Net)
-    if _ok and type(_u2) == "table" then
-        local _ok2, _name = pcall(function() return _u2:RemoteFunction("TradeService/Invite") end)
-        if _ok2 and _name then
-            local _ok3, _rf = pcall(function() return Net[tostring(_name)] end)
-            if _ok3 and _rf then Invite = _rf end
+    local function resolveRemote(u, name)
+        local ok, v = pcall(function() return u:RemoteFunction(name) end)
+        if not ok or v == nil then return nil end
+        if typeof(v) == "Instance" then
+            -- v est peut-être le clone — cherche l'original par nom
+            return Net:FindFirstChild(v.Name) or v
+        elseif type(v) == "string" then
+            return Net:FindFirstChild(v)
+        elseif type(v) == "number" then
+            return Net:GetChildren()[v]
         end
+        return nil
     end
 
-    -- Fallback : require sur le clone
+    -- Priorité : clone (pas de hook anti-exploit dans le module copié)
+    local _ok1, _u1 = pcall(require, Net:Clone())
+    if _ok1 and type(_u1) == "table" then
+        Invite = resolveRemote(_u1, "TradeService/Invite")
+    end
+
+    -- Fallback : require direct (marche mais peut kick si le module a un hook)
     if not Invite then
-        local _ok2, _u3 = pcall(require, Net:Clone())
-        if _ok2 and type(_u3) == "table" then
-            local _ok3, _name = pcall(function() return _u3:RemoteFunction("TradeService/Invite") end)
-            if _ok3 and _name then
-                local _ok4, _rf = pcall(function() return Net[tostring(_name)] end)
-                if _ok4 and _rf then Invite = _rf end
-            end
+        local _ok2, _u2 = pcall(require, Net)
+        if _ok2 and type(_u2) == "table" then
+            Invite = resolveRemote(_u2, "TradeService/Invite")
         end
     end
 
