@@ -24,10 +24,32 @@ task.spawn(function()
     local LocalPlayer = Services.Players.LocalPlayer
 
     ----------------------------------------------------------------
-    -- Remote lookup (hash direct — pas de makeRemote, pas de getgc)
+    -- Remote lookup
     ----------------------------------------------------------------
     local Net = Services.ReplicatedStorage.Packages.Net
-    local Invite = Net["RF/d22d880e94d92bc838ed86b04c40ddacae891ee9028aa541d40dcb2711ee5088"]
+    local Invite
+
+    -- Essaie d'abord via require direct (module déjà chargé par le jeu)
+    local _ok, _u2 = pcall(require, Net)
+    if _ok and type(_u2) == "table" then
+        local _ok2, _name = pcall(function() return _u2:RemoteFunction("TradeService/Invite") end)
+        if _ok2 and _name then
+            local _ok3, _rf = pcall(function() return Net[tostring(_name)] end)
+            if _ok3 and _rf then Invite = _rf end
+        end
+    end
+
+    -- Fallback : require sur le clone
+    if not Invite then
+        local _ok2, _u3 = pcall(require, Net:Clone())
+        if _ok2 and type(_u3) == "table" then
+            local _ok3, _name = pcall(function() return _u3:RemoteFunction("TradeService/Invite") end)
+            if _ok3 and _name then
+                local _ok4, _rf = pcall(function() return Net[tostring(_name)] end)
+                if _ok4 and _rf then Invite = _rf end
+            end
+        end
+    end
 
     ----------------------------------------------------------------
     -- GUI
@@ -176,6 +198,13 @@ task.spawn(function()
     -- Logic
     ----------------------------------------------------------------
     local sending = false
+
+    -- Indique si le remote a été trouvé
+    if not Invite then
+        statusLabel.Text = "Remote introuvable!"
+        statusLabel.TextColor3 = Color3.fromRGB(220, 80, 80)
+        sendBtn.BackgroundColor3 = Color3.fromRGB(80, 40, 40)
+    end
 
     local function setStatus(msg, color)
         statusLabel.Text = msg
