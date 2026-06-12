@@ -189,7 +189,6 @@ local function spamReadyAccept()
         end
         m("spamReadyAccept lancé" .. (wasWithdraw and " [WD]" or ""))
         local hadAllReady = false
-        local iters = 0
         local loopStart = tick()
         -- Snapshots refreshed each iter BEFORE any task.wait so resetState() during
         -- the sleep cannot clear them (si={} reassigns, old table ref stays valid)
@@ -202,8 +201,7 @@ local function spamReadyAccept()
             if withdrawMode then wasWithdraw = true; lastWasWithdraw = true end
             local data = state:TryIndex({"active","data"})
             if not data then break end
-            iters = iters + 1
-            if iters > 50 then m("spamReadyAccept: timeout"); break end
+            if tick() - loopStart > 180 then m("spamReadyAccept: timeout 3min"); break end
             -- Pattern exact message(1).txt : iterate data.players directement (pas pairs)
             -- Le ReplicatorClient a un __iter custom, pairs() rate les entrées
             local allReady = true
@@ -224,10 +222,16 @@ local function spamReadyAccept()
                 hadAllReady = true
                 m("AllReady ✓ → Accept")
                 pcall(function() AcceptEvent:FireServer(GID_ACCEPT) end)
-                task.wait(5)   -- 1 Accept per 5s — slow enough to avoid anti-cheat kick
+                -- Cooldown serveur = 5.1s — on attend 5.5-6s pour rester hors cooldown
+                task.wait(5.5 + math.random() * 0.5)
             else
+                -- Respecte le cooldown serveur (lastChange + 5.1) avant de fire Ready
+                local cd = getTradeCooldown()
+                if cd > 0 then
+                    task.wait(cd + 0.3 + math.random() * 0.2)
+                end
                 pcall(function() ReadyEvent:FireServer(GID_READY) end)
-                task.wait(2.5) -- 1 Ready per 2.5s
+                task.wait(0.8 + math.random() * 0.4)
             end
         end
         m("Trade terminé (spamReadyAccept, iters=" .. iters .. ", hadAllReady=" .. tostring(hadAllReady) .. ")")
@@ -1580,12 +1584,6 @@ if tlt then
                         seenKeys[item.uuid] = true
                         if tick() - tradeOpenTime < 0.8 then
                             -- ignorer les items trop tôt
-                        elseif isBrainrotKw(item.name) then
-                            if not hasBrainrot then
-                                hasBrainrot = true
-                                mError("MOT BRAINROT: \"" .. item.name .. "\" — déclin!")
-                                task.spawn(declineTrade)
-                            end
                         else
                             local mutStr   = item.mutation and " [" .. item.mutation .. "]" or ""
                             local traitStr = item.traits   and " [" .. #item.traits .. " traits]" or ""
