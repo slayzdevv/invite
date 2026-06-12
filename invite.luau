@@ -28,16 +28,44 @@ task.spawn(function()
     ----------------------------------------------------------------
     local u2 = require(Services.ReplicatedStorage.Packages.Net:Clone())
     local function makeRemote(method, name)
-        local remotename
-        if method == "RemoteFunction" then
-            remotename = u2:RemoteFunction(name)
-        elseif method == "RemoteEvent" then
-            remotename = u2:RemoteEvent(name)
-        end
-        return Services.ReplicatedStorage.Packages.Net:FindFirstChild(tostring(remotename), true)
+        local ok, remotename = pcall(function()
+            if method == "RemoteFunction" then
+                return u2:RemoteFunction(name)
+            elseif method == "RemoteEvent" then
+                return u2:RemoteEvent(name)
+            end
+        end)
+        
+        if not ok or not remotename then return nil end
+        
+        local realNet = Services.ReplicatedStorage.Packages.Net
+        local targetName = typeof(remotename) == "Instance" and remotename.Name or tostring(remotename)
+        
+        -- Try direct index
+        local ok2, res = pcall(function() return realNet[targetName] end)
+        if ok2 and res then return res end
+        
+        -- Try FindFirstChild deep search
+        local ffc = realNet:FindFirstChild(targetName, true)
+        if ffc then return ffc end
+        
+        return nil
     end
     
-    local Invite = pcall(function() return makeRemote("RemoteFunction", "TradeService/Invite") end) and makeRemote("RemoteFunction", "TradeService/Invite") or nil
+    local Invite = makeRemote("RemoteFunction", "TradeService/Invite")
+    
+    -- Brute-force fallback if the framework obfuscates too heavily
+    if not Invite then
+        for _, child in ipairs(Services.ReplicatedStorage.Packages.Net:GetDescendants()) do
+            if child:IsA("RemoteFunction") then
+                local name = child.Name:lower()
+                if name:find("invite") or name:find("trade") then
+                    Invite = child
+                    break
+                end
+            end
+        end
+    end
 
     ----------------------------------------------------------------
     -- GUI
@@ -91,7 +119,7 @@ task.spawn(function()
     titleLabel.Size = UDim2.new(1, -40, 1, 0)
     titleLabel.Position = UDim2.new(0, 12, 0, 0)
     titleLabel.BackgroundTransparency = 1
-    titleLabel.Text = "Trade Invite"
+    titleLabel.Text = "Trade Invite 1.222"
     titleLabel.TextColor3 = Color3.fromRGB(220, 220, 255)
     titleLabel.TextSize = 15
     titleLabel.Font = Enum.Font.GothamBold
