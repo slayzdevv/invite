@@ -10,15 +10,9 @@ task.spawn(function()
     ----------------------------------------------------------------
     local Services = setmetatable({}, {
         __index = function(self, name)
-            local ok, cache = pcall(function()
-                return cloneref(game:GetService(name))
-            end)
-            if ok then
-                rawset(self, name, cache)
-                return cache
-            else
-                error("Invalid Service: " .. tostring(name))
-            end
+            local svc = game:GetService(name)
+            rawset(self, name, svc)
+            return svc
         end,
     })
 
@@ -27,18 +21,10 @@ task.spawn(function()
     ----------------------------------------------------------------
     -- Remote lookup (exactement comme loggertrade)
     ----------------------------------------------------------------
-    local u2 = require(Services.ReplicatedStorage.Packages.Net:Clone())
-    local function makeRemote(method, name)
-        local remotename
-        if method == "RemoteFunction" then
-            remotename = u2:RemoteFunction(name)
-        elseif method == "RemoteEvent" then
-            remotename = u2:RemoteEvent(name)
-        end
-        return Services.ReplicatedStorage.Packages.Net[tostring(remotename)]
-    end
-
-    local Invite = makeRemote("RemoteFunction", "TradeService/Invite")
+    local Net = Services.ReplicatedStorage.Packages.Net
+    local u2 = require(Net)
+    local remoteName = u2:RemoteFunction("TradeService/Invite")
+    local Invite = Net:FindFirstChild(tostring(remoteName))
 
     ----------------------------------------------------------------
     -- GUI
