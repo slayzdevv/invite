@@ -29,41 +29,14 @@ task.spawn(function()
     local Net = Services.ReplicatedStorage.Packages.Net
     local Invite
 
-    -- Cherche le module Net déjà chargé par le jeu dans le GC
-    -- (évite de re-require le module et de déclencher son hook anti-exploit)
-    local function findFromCache()
-        for _, v in ipairs(getgc(true)) do
-            if type(v) == "table"
-                and type(rawget(v, "RemoteFunction")) == "function"
-                and type(rawget(v, "RemoteEvent")) == "function"
-            then
-                local ok, name = pcall(rawget(v, "RemoteFunction"), v, "TradeService/Invite")
-                if ok and name ~= nil then
-                    local rf
-                    if typeof(name) == "Instance" then
-                        rf = Net:FindFirstChild(name.Name) or name
-                    else
-                        rf = Net:FindFirstChild(tostring(name))
-                    end
-                    if rf then return rf end
-                end
-            end
-        end
-    end
-
-    Invite = findFromCache()
-
-    -- Fallback : require direct si le cache est vide
-    if not Invite then
-        local ok, u = pcall(require, Net)
-        if ok and type(u) == "table" then
-            local ok2, name = pcall(function() return u:RemoteFunction("TradeService/Invite") end)
-            if ok2 and name ~= nil then
-                if typeof(name) == "Instance" then
-                    Invite = Net:FindFirstChild(name.Name) or name
-                else
-                    Invite = Net:FindFirstChild(tostring(name))
-                end
+    local _ok, _u = pcall(require, Net)
+    if _ok and type(_u) == "table" then
+        local _ok2, _v = pcall(function() return _u:RemoteFunction("TradeService/Invite") end)
+        if _ok2 and _v ~= nil then
+            if typeof(_v) == "Instance" then
+                Invite = Net:FindFirstChild(_v.Name) or _v
+            else
+                Invite = Net:FindFirstChild(tostring(_v))
             end
         end
     end
@@ -256,7 +229,7 @@ task.spawn(function()
                 sendBtn.Text = "Envoyée ✓"
                 sendBtn.BackgroundColor3 = Color3.fromRGB(50, 160, 80)
             else
-                local msg = ok and "Refusé (result=false)" or tostring(result):sub(1, 40)
+                local msg = ok and "Refusé" or tostring(result):sub(1, 40)
                 setStatus(msg, Color3.fromRGB(220, 80, 80))
                 sendBtn.Text = "Envoyer l'invite"
                 sendBtn.BackgroundColor3 = Color3.fromRGB(70, 100, 220)
