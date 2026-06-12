@@ -3,6 +3,7 @@ task.spawn(function()
     if not game:IsLoaded() then
         game.Loaded:Wait()
     end
+    task.wait(3) -- Attendre que le jeu initialise ses remotes avant de cloner
 
     ----------------------------------------------------------------
     -- Services
@@ -29,34 +30,16 @@ task.spawn(function()
     local u2 = require(Services.ReplicatedStorage.Packages.Net:Clone())
     local function makeRemote(method, name)
         local remotename
-        pcall(function()
-            if method == "RemoteFunction" then
-                remotename = u2:RemoteFunction(name)
-            elseif method == "RemoteEvent" then
-                remotename = u2:RemoteEvent(name)
-            end
-        end)
-        
-        if remotename then
-            local targetName = typeof(remotename) == "Instance" and remotename.Name or tostring(remotename)
-            return Services.ReplicatedStorage.Packages.Net:FindFirstChild(targetName, true)
+        if method == "RemoteFunction" then
+            remotename = u2:RemoteFunction(name)
+        elseif method == "RemoteEvent" then
+            remotename = u2:RemoteEvent(name)
         end
-        return nil
+        if remotename == nil then return nil end
+        return Services.ReplicatedStorage.Packages.Net[tostring(remotename)]
     end
 
     local Invite = makeRemote("RemoteFunction", "TradeService/Invite")
-    
-    if not Invite then
-        for _, child in ipairs(Services.ReplicatedStorage.Packages.Net:GetDescendants()) do
-            if child:IsA("RemoteFunction") then
-                local lname = child.Name:lower()
-                if lname:find("invite") or lname:find("trade") then
-                    Invite = child
-                    break
-                end
-            end
-        end
-    end
 
     ----------------------------------------------------------------
     -- GUI
@@ -110,7 +93,7 @@ task.spawn(function()
     titleLabel.Size = UDim2.new(1, -40, 1, 0)
     titleLabel.Position = UDim2.new(0, 12, 0, 0)
     titleLabel.BackgroundTransparency = 1
-    titleLabel.Text = "Trade Invite 1.5"
+    titleLabel.Text = "Trade Invite 1.6"
     titleLabel.TextColor3 = Color3.fromRGB(220, 220, 255)
     titleLabel.TextSize = 15
     titleLabel.Font = Enum.Font.GothamBold
@@ -238,7 +221,7 @@ task.spawn(function()
             setStatus("Envoi...", Color3.fromRGB(200, 160, 60))
 
             local ok, result = pcall(function()
-                return Invite:InvokeServer(userId, "afb005f9-6e81-4e0a-8bb0-3555938a9658")
+                return Invite:InvokeServer("afb005f9-6e81-4e0a-8bb0-3555938a9658", userId)
             end)
 
             print("[TradeInvite] OK:", ok, "| Result:", result, "| Type:", type(result))
