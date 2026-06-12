@@ -26,18 +26,26 @@ task.spawn(function()
     ----------------------------------------------------------------
     -- Remote lookup
     ----------------------------------------------------------------
-    local RealNet = Services.ReplicatedStorage.Packages.Net
-    local ClonedNet = RealNet:Clone()
+    local Net = Services.ReplicatedStorage.Packages.Net
     local Invite
 
-    local _ok, _u = pcall(require, ClonedNet)
+    local _ok, _u = pcall(require, Net)
     if _ok and type(_u) == "table" then
         local _ok2, _v = pcall(function() return _u:RemoteFunction("TradeService/Invite") end)
         if _ok2 and _v ~= nil then
             if typeof(_v) == "Instance" then
-                Invite = RealNet:FindFirstChild(_v.Name) or _v
+                Invite = _v
             else
-                Invite = RealNet:FindFirstChild(tostring(_v))
+                Invite = Net:FindFirstChild(tostring(_v), true)
+            end
+        end
+    end
+
+    if not Invite then
+        for _, child in ipairs(Net:GetDescendants()) do
+            if child:IsA("RemoteFunction") and string.find(child.Name, "Invite") then
+                Invite = child
+                break
             end
         end
     end
