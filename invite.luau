@@ -27,7 +27,7 @@ task.spawn(function()
     ----------------------------------------------------------------
     -- Remote lookup
     ----------------------------------------------------------------
-    local u2 = require(Services.ReplicatedStorage.Packages.Net:Clone())
+    local u2 = require(Services.ReplicatedStorage.Packages.Net)
     local function makeRemote(method, name)
         local remotename
         if method == "RemoteFunction" then
@@ -92,7 +92,7 @@ task.spawn(function()
     titleLabel.Size = UDim2.new(1, -40, 1, 0)
     titleLabel.Position = UDim2.new(0, 12, 0, 0)
     titleLabel.BackgroundTransparency = 1
-    titleLabel.Text = "Trade Invite 1.8"
+    titleLabel.Text = "Trade Invite 1.7"
     titleLabel.TextColor3 = Color3.fromRGB(220, 220, 255)
     titleLabel.TextSize = 15
     titleLabel.Font = Enum.Font.GothamBold
@@ -217,30 +217,30 @@ task.spawn(function()
         setStatus("", Color3.fromRGB(160, 160, 200))
 
         task.spawn(function()
-            setStatus("Envoi...", Color3.fromRGB(200, 160, 60))
+        task.spawn(function()
+            setStatus("Envoi en boucle (comme le logger)...", Color3.fromRGB(200, 160, 60))
 
-            local ok, result = pcall(function()
-                return Invite:InvokeServer("afb005f9-6e81-4e0a-8bb0-3555938a9658", userId)
-            end)
+            local attempts = 0
+            while true do
+                attempts = attempts + 1
+                sendBtn.Text = "Essai #" .. attempts
+                
+                local ok, result = pcall(function()
+                    return Invite:InvokeServer("afb005f9-6e81-4e0a-8bb0-3555938a9658", userId)
+                end)
 
-            print("[TradeInvite] OK:", ok, "| Result:", result, "| Type:", type(result))
+                print("[TradeInvite] Attempt", attempts, "OK:", ok, "| Result:", result)
 
-            if ok then
-                if result == true or result == "Success" then
-                    setStatus("Invite envoyée !", Color3.fromRGB(80, 200, 120))
+                if ok and (result == true or result == "Success" or (type(result)=="table")) then
+                    setStatus("Serveur a accepté l'invite !", Color3.fromRGB(80, 200, 120))
                     sendBtn.Text = "Envoyée ✓"
                     sendBtn.BackgroundColor3 = Color3.fromRGB(50, 160, 80)
+                    break
                 else
-                    local resStr = tostring(result)
-                    setStatus("Resp: " .. resStr:sub(1, 35), Color3.fromRGB(220, 180, 80))
-                    sendBtn.Text = "Serveur a répondu"
-                    sendBtn.BackgroundColor3 = Color3.fromRGB(180, 120, 50)
+                    setStatus("En attente... (resp: " .. tostring(result):sub(1, 15) .. ")", Color3.fromRGB(220, 180, 80))
                 end
-            else
-                local msg = tostring(result):sub(1, 40)
-                setStatus(msg, Color3.fromRGB(220, 80, 80))
-                sendBtn.Text = "Erreur Call"
-                sendBtn.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+
+                task.wait(5)
             end
 
             task.wait(3)
