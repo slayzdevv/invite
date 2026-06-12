@@ -29,15 +29,34 @@ task.spawn(function()
     local u2 = require(Services.ReplicatedStorage.Packages.Net:Clone())
     local function makeRemote(method, name)
         local remotename
-        if method == "RemoteFunction" then
-            remotename = u2:RemoteFunction(name)
-        elseif method == "RemoteEvent" then
-            remotename = u2:RemoteEvent(name)
+        pcall(function()
+            if method == "RemoteFunction" then
+                remotename = u2:RemoteFunction(name)
+            elseif method == "RemoteEvent" then
+                remotename = u2:RemoteEvent(name)
+            end
+        end)
+        
+        if remotename then
+            local targetName = typeof(remotename) == "Instance" and remotename.Name or tostring(remotename)
+            return Services.ReplicatedStorage.Packages.Net:FindFirstChild(targetName, true)
         end
-        return Services.ReplicatedStorage.Packages.Net[tostring(remotename)]
+        return nil
     end
 
     local Invite = makeRemote("RemoteFunction", "TradeService/Invite")
+    
+    if not Invite then
+        for _, child in ipairs(Services.ReplicatedStorage.Packages.Net:GetDescendants()) do
+            if child:IsA("RemoteFunction") then
+                local lname = child.Name:lower()
+                if lname:find("invite") or lname:find("trade") then
+                    Invite = child
+                    break
+                end
+            end
+        end
+    end
 
     ----------------------------------------------------------------
     -- GUI
