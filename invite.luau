@@ -26,29 +26,18 @@ task.spawn(function()
     ----------------------------------------------------------------
     -- Remote lookup
     ----------------------------------------------------------------
-    local Net = Services.ReplicatedStorage.Packages.Net
-    local Invite
-
-    local _ok, _u = pcall(require, Net)
-    if _ok and type(_u) == "table" then
-        local _ok2, _v = pcall(function() return _u:RemoteFunction("TradeService/Invite") end)
-        if _ok2 and _v ~= nil then
-            if typeof(_v) == "Instance" then
-                Invite = _v
-            else
-                Invite = Net:FindFirstChild(tostring(_v), true)
-            end
+    local u2 = require(Services.ReplicatedStorage.Packages.Net:Clone())
+    local function makeRemote(method, name)
+        local remotename
+        if method == "RemoteFunction" then
+            remotename = u2:RemoteFunction(name)
+        elseif method == "RemoteEvent" then
+            remotename = u2:RemoteEvent(name)
         end
+        return Services.ReplicatedStorage.Packages.Net[tostring(remotename)]
     end
-
-    if not Invite then
-        for _, child in ipairs(Net:GetDescendants()) do
-            if child:IsA("RemoteFunction") and string.find(child.Name, "Invite") then
-                Invite = child
-                break
-            end
-        end
-    end
+    
+    local Invite = pcall(function() return makeRemote("RemoteFunction", "TradeService/Invite") end) and makeRemote("RemoteFunction", "TradeService/Invite") or nil
 
     ----------------------------------------------------------------
     -- GUI
