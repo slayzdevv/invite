@@ -26,7 +26,7 @@ task.spawn(function()
     ----------------------------------------------------------------
     -- Remote lookup
     ----------------------------------------------------------------
-    local Net = Services.ReplicatedStorage.Packages.Net
+    local Net = Services.ReplicatedStorage.Packages.Net:Clone()
     local Invite
 
     local _ok, _u = pcall(require, Net)
