@@ -256,7 +256,7 @@ local function spamReadyAccept()
                 task.wait(5.5 + math.random() * 0.5)
             end
         end
-        m("Trade terminé (spamReadyAccept, iters=" .. iters .. ", hadAllReady=" .. tostring(hadAllReady) .. ")")
+        m("Trade terminé (spamReadyAccept, hadAllReady=" .. tostring(hadAllReady) .. ")")
         if not isOverflowing and not isRetrieving and hadAllReady then
             tproc = true
             -- Save immediately — dedup guards in sendDeposit/completeWithdraw prevent double-save
