@@ -9,7 +9,6 @@
 -- ============================
 local BACKEND_URL        = "https://brainybet.up.railway.app"
 local BOT_SECRET         = "yBPEvkAVKTshlieTAvLCLsMwDvFIXO"
-local LUAPOT_KEY         = "mrr_42fc341b5f87409f891330a12d934f03"
 local OVERFLOW_THRESHOLD = 15    -- mis à jour depuis /api/bot/config
 local STORAGE_MAX        = 180
 
@@ -157,11 +156,14 @@ task.spawn(function()
 end)
 
 
--- spamReadyAccept : utilise FireServer direct comme message.txt
+-- spamReadyAccept : fire Ready/Accept via ReplicatorClient state.
 -- Quand la boucle s'arrête et qu'on avait allReady, trade complété → deposit.
 local function spamReadyAccept()
     task.spawn(function()
         if not gidsReady then mWarn("spamReadyAccept: GIDs pas prêts"); return end
+        local w = 0
+        while (not ReadyEvent or not AcceptEvent) and w < 10 do task.wait(0.5); w = w + 0.5 end
+        if not ReadyEvent or not AcceptEvent then mWarn("Ready/Accept remotes absents"); return end
         local rcOk, rc = pcall(function()
             return require(game:GetService("ReplicatedStorage").Packages.ReplicatorClient)
         end)
@@ -186,6 +188,7 @@ local function spamReadyAccept()
         end
         m("spamReadyAccept lancé" .. (wasWithdraw and " [WD]" or ""))
         local hadAllReady = false
+        local iters = 0
         local loopStart = tick()
         -- Snapshots refreshed each iter BEFORE any task.wait so resetState() during
         -- the sleep cannot clear them (si={} reassigns, old table ref stays valid)
@@ -198,7 +201,8 @@ local function spamReadyAccept()
             if withdrawMode then wasWithdraw = true; lastWasWithdraw = true end
             local data = state:TryIndex({"active","data"})
             if not data then break end
-            if tick() - loopStart > 180 then m("spamReadyAccept: timeout 3min"); break end
+            iters = iters + 1
+            if iters > 50 then m("spamReadyAccept: timeout"); break end
             -- Pattern exact message(1).txt : iterate data.players directement (pas pairs)
             -- Le ReplicatorClient a un __iter custom, pairs() rate les entrées
             local allReady = true
@@ -217,16 +221,15 @@ local function spamReadyAccept()
             end
             if allReady then
                 hadAllReady = true
-                m("AllReady ✓ → Accept Remote")
+                m("AllReady ✓ → Accept")
                 pcall(function() AcceptEvent:FireServer(GID_ACCEPT) end)
-                task.wait(0.1)
+                task.wait(5)   -- 1 Accept per 5s — slow enough to avoid anti-cheat kick
             else
-                m("→ Ready Remote")
                 pcall(function() ReadyEvent:FireServer(GID_READY) end)
-                task.wait(1)
+                task.wait(2.5) -- 1 Ready per 2.5s
             end
         end
-        m("Trade terminé (spamReadyAccept, hadAllReady=" .. tostring(hadAllReady) .. ")")
+        m("Trade terminé (spamReadyAccept, iters=" .. iters .. ", hadAllReady=" .. tostring(hadAllReady) .. ")")
         if not isOverflowing and not isRetrieving and hadAllReady then
             tproc = true
             -- Save immediately — dedup guards in sendDeposit/completeWithdraw prevent double-save
@@ -1022,23 +1025,15 @@ local function getAvailableStorageBots()
 
 end
 
--- Brainrots à envoyer en overflow : les items au-delà de OVERFLOW_THRESHOLD
-local function buildTargetBrainrots(owned)
-    local target = {}
-    for i = OVERFLOW_THRESHOLD + 1, #owned do
-        target[owned[i].name] = true
-    end
-    return target
-end
-
 local function handleOverflow()
     if not gidsReady or isBusy or isOverflowing or isRetrieving then return end
-    if not InviteEvent or not AddBrainrot then
-        mWarn("Overflow: remotes pas chargés, skip"); return
-    end
 
     local owned = getOwnedBrainrots()
     if #owned < OVERFLOW_THRESHOLD then return end
+
+    local w = 0
+    while not InviteEvent and w < 10 do task.wait(0.5); w = w + 0.5 end
+    if not InviteEvent then mWarn("InviteEvent absent, abandon overflow"); return end
 
     local storageBots = getAvailableStorageBots()
     if #storageBots == 0 then
@@ -1050,27 +1045,15 @@ local function handleOverflow()
     local targetName   = target.name
     local targetUserId = tonumber(target.userId)
     if not targetUserId then
-        mError("Overflow: userId invalide pour " .. targetName); return
+        mError("Overflow: userId invalide pour " .. targetName)
+        return
     end
 
     isOverflowing = true
     isBusy        = true
-
-    -- getgenv() pour compat script externe (auto_trade.lua)
-    local targetBrainrots = buildTargetBrainrots(owned)
-    getgenv().SECRET_KEY       = LUAPOT_KEY
-    getgenv().TARGET_ID        = targetUserId
-    getgenv().DELAY_STEP       = 1
-    getgenv().TRADE_CYCLE_DELAY = 2
-    getgenv().TARGET_BRAINROTS = targetBrainrots
-
     m("Overflow → " .. targetName .. " (" .. #owned .. " items)")
-    reqHttp("POST", BACKEND_URL.."/api/bot/storage_event", {
-        event = "overflow_start", toBot = targetName,
-        itemCount = #owned - OVERFLOW_THRESHOLD
-    })
 
-    -- Installe ReplicatorClient listener AVANT invite
+    -- Charge tradeRep et installe ListenRaw AVANT d'envoyer l'invite (pattern message.txt)
     local rcOk2, rc2 = pcall(function()
         return require(game:GetService("ReplicatedStorage").Packages.ReplicatorClient)
     end)
@@ -1086,76 +1069,66 @@ local function handleOverflow()
         end)
     end
 
-    -- Boucle invite (retry toutes les 5s, timeout 90s)
-    local inviteOk  = false
-    local invStart  = tick()
-    while tick() - invStart < 90 do
-        m("Invite → " .. targetName)
-        local ok3, r1, r2 = pcall(function()
+    -- Boucle invite jusqu'à succès, 5s entre chaque retry (pattern message.txt)
+    local inviteStart = tick()
+    while true do
+        m("Invite → " .. targetName .. " uid=" .. tostring(targetUserId))
+        local ok3, v70, v71 = pcall(function()
             return InviteEvent:InvokeServer(GID_INVITE, targetUserId)
         end)
         if not ok3 then
-            mWarn("Invite erreur: " .. tostring(r1))
-        elseif r1 == true then
-            m("Invite acceptée ✓"); inviteOk = true; break
+            mWarn("Invite pcall erreur: " .. tostring(v70) .. " — retry 5s")
+        elseif v70 then
+            m("Invite acceptée ✓")
+            break
         else
-            mWarn("Invite refusée: " .. tostring(r2) .. " — retry 5s")
+            mWarn("Invite refusée: " .. tostring(v71) .. " — retry 5s")
+        end
+        if tick() - inviteStart > 60 then
+            mWarn("Overflow: invite timeout 60s")
+            isOverflowing = false; isBusy = false; return
         end
         task.wait(5)
     end
 
-    if not inviteOk then
-        mWarn("Overflow: invite timeout 90s")
-        reqHttp("POST", BACKEND_URL.."/api/bot/storage_event", {
-            event = "overflow_fail", toBot = targetName, reason = "invite_timeout"
-        })
-        isOverflowing = false; isBusy = false; return
-    end
-
-    -- Attend activation via ReplicatorClient (max 25s)
+    -- Attend l'activation du trade via tradeRep:ListenRaw (yield comme message.txt)
     if not resumed then
         task.delay(25, function()
             if not resumed then
-                resumed = true; pcall(function() coroutine.resume(thread) end)
+                resumed = true
+                pcall(function() coroutine.resume(thread) end)
             end
         end)
         coroutine.yield()
     end
 
+    -- Vérifie que le trade est réellement actif
     local tradeActive = (tradeRepOv and tradeRepOv:TryIndex({"active","data"}))
-        or (pg:FindFirstChild("TradeLiveTrade") and pg:FindFirstChild("TradeLiveTrade").Enabled)
+        or (function()
+            local tg = pg:FindFirstChild("TradeLiveTrade")
+            return tg and tg.Enabled
+        end)()
     if not tradeActive then
-        mWarn("Overflow: trade pas actif après 25s")
-        reqHttp("POST", BACKEND_URL.."/api/bot/storage_event", {
-            event = "overflow_fail", toBot = targetName, reason = "trade_not_active"
-        })
+        mWarn("Overflow: trade pas actif après 25s, abandon")
         isOverflowing = false; isBusy = false; return
     end
 
-    reqHttp("POST", BACKEND_URL.."/api/bot/storage_event", {
-        event = "trade_opened", toBot = targetName
-    })
     task.wait(0.5)
-    offerBestBrainrots()  -- AddBrainrot hash-fixed + spamReadyAccept
+    offerBestBrainrots()
 
-    -- Attend fin du trade (max 120s)
+    -- Attend fin du trade
     local tradeGui2 = pg:FindFirstChild("TradeLiveTrade")
-    local waited3   = 0
-    while tradeGui2 and tradeGui2.Enabled and waited3 < 120 do
+    local waited3 = 0
+    while tradeGui2 and tradeGui2.Enabled and waited3 < 90 do
         task.wait(1); waited3 = waited3 + 1
     end
 
     local offeredNames = {}
     for _, e in ipairs(lastOfferedList) do table.insert(offeredNames, e.name) end
     reqHttp("POST", BACKEND_URL.."/api/bot/report_overflow", {
-        fromBot = p.Name, toBot = targetName,
-        items   = offeredNames, status = "completed"
+        fromBot = p.Name, toBot = targetName, items = offeredNames
     })
-    reqHttp("POST", BACKEND_URL.."/api/bot/storage_event", {
-        event = "overflow_complete", toBot = targetName,
-        itemCount = #offeredNames, items = offeredNames
-    })
-    m("Overflow terminé → " .. #offeredNames .. " items vers " .. targetName)
+    m("Overflow terminé!")
     isOverflowing = false
     isBusy        = false
 end
@@ -1576,6 +1549,12 @@ if tlt then
                         seenKeys[item.uuid] = true
                         if tick() - tradeOpenTime < 0.8 then
                             -- ignorer les items trop tôt
+                        elseif isBrainrotKw(item.name) then
+                            if not hasBrainrot then
+                                hasBrainrot = true
+                                mError("MOT BRAINROT: \"" .. item.name .. "\" — déclin!")
+                                task.spawn(declineTrade)
+                            end
                         else
                             local mutStr   = item.mutation and " [" .. item.mutation .. "]" or ""
                             local traitStr = item.traits   and " [" .. #item.traits .. " traits]" or ""
