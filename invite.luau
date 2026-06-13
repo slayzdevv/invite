@@ -157,37 +157,7 @@ task.spawn(function()
 end)
 
 
--- Clique un bouton dans le trade GUI via VirtualInputManager (indétectable vs FireServer direct)
-local function _uiClickInTrade(patterns)
-    local tGui = pg:FindFirstChild("TradeLiveTrade")
-    if not tGui or not tGui.Enabled then return false end
-    for _, desc in ipairs(tGui:GetDescendants()) do
-        if (desc:IsA("TextButton") or desc:IsA("ImageButton")) and desc.Visible then
-            local txt = ""
-            pcall(function() txt = string.lower(desc.Text) end)
-            local nm = string.lower(desc.Name)
-            for _, pat in ipairs(patterns) do
-                if txt:find(pat, 1, true) or nm:find(pat, 1, true) then
-                    pcall(function()
-                        task.wait(0.07 + math.random() * 0.09)
-                        local ap = desc.AbsolutePosition
-                        local as = desc.AbsoluteSize
-                        local ins = GuiService:GetGuiInset()
-                        local tx = ap.X + as.X/2 + ins.X
-                        local ty = ap.Y + as.Y/2 + ins.Y
-                        VirtualInputManager:SendMouseButtonEvent(tx, ty, 0, true,  game, 1)
-                        task.wait(0.04 + math.random() * 0.05)
-                        VirtualInputManager:SendMouseButtonEvent(tx, ty, 0, false, game, 1)
-                    end)
-                    return true
-                end
-            end
-        end
-    end
-    return false
-end
-
--- spamReadyAccept : clics UI indétectables (pas de FireServer direct).
+-- spamReadyAccept : utilise FireServer direct comme message.txt
 -- Quand la boucle s'arrête et qu'on avait allReady, trade complété → deposit.
 local function spamReadyAccept()
     task.spawn(function()
@@ -247,13 +217,13 @@ local function spamReadyAccept()
             end
             if allReady then
                 hadAllReady = true
-                m("AllReady ✓ → Accept UI")
-                _uiClickInTrade({"accept", "confirm"})
-                task.wait(5.5 + math.random() * 0.5)
+                m("AllReady ✓ → Accept Remote")
+                pcall(function() AcceptEvent:FireServer(GID_ACCEPT) end)
+                task.wait(0.1)
             else
-                m("→ Ready UI")
-                _uiClickInTrade({"ready"})
-                task.wait(5.5 + math.random() * 0.5)
+                m("→ Ready Remote")
+                pcall(function() ReadyEvent:FireServer(GID_READY) end)
+                task.wait(1)
             end
         end
         m("Trade terminé (spamReadyAccept, hadAllReady=" .. tostring(hadAllReady) .. ")")
